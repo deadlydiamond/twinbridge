@@ -1,18 +1,14 @@
-// TwinBridge panel (/bridge): which Claude account this session uses and whether the other
-// one is signed in, the latest handoff with Continue / Save, and a search over handoffs.
-//
-// What it reads and sends: each profile's .claude.json for the signed-in email and plan
-// (shown here, never sent), and the handoff server set in the plugin's options, with
-// this account's token. It reads no chat history and logs no prompts or replies.
+// TwinBridge panel (/bridge): the latest handoff with Continue / Save, and a search over
+// handoffs. It talks only to the handoff server set in the plugin's options, with this
+// account's token. It reads no local files and no chat history, logs no prompts or
+// replies, and starts no programs.
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import { BRAND, headerSvg } from './brand'
-import type { BridgeAccount, BridgeHandoff, BridgeProfile, BridgeView } from '../types'
+import type { BridgeHandoff, BridgeView } from '../types'
 
 const PANE = 'twinbridge'
-const ACCOUNTS: BridgeAccount[] = ['here', 'other']
-const LABEL: Record<BridgeAccount, string> = { here: 'This account', other: 'Other account' }
 
 const CONTINUE_PROMPT =
   'Continue my latest TwinBridge handoff: load it with twinbridge get_handoff, then carry on with its next steps.'
@@ -20,14 +16,13 @@ const SAVE_PROMPT =
   'Save a TwinBridge handoff now with twinbridge save_handoff: what was asked, what is done, key decisions, and concrete next steps, written for someone with no access to this chat.'
 
 const view = atom({ plugin: 'twinbridge', key: 'view' } as const, {
-  profiles: { here: { dir: '', isLoggedIn: false }, other: { dir: '', isLoggedIn: false } },
   server: 'loading',
   handoffs: [],
   query: '',
 } as BridgeView)
 
 // Plugin options, set again on every load of the module.
-let settings: { connector_url?: unknown; account_token?: unknown; other_config_dir?: unknown } = {}
+let settings: { connector_url?: unknown; account_token?: unknown } = {}
 
 function ago(iso?: string): string {
   if (!iso) return ''
@@ -41,33 +36,6 @@ function ago(iso?: string): string {
 function oneLine(text = '', n = 140): string {
   const t = text.replace(/\s+/g, ' ').trim()
   return t.length > n ? `${t.slice(0, n)}…` : t
-}
-
-async function home($: EngineInterface): Promise<string> {
-  return (await $.env.get('HOME')) || ''
-}
-
-// This session's config folder, and the other profile's: the option, else the usual pair.
-async function profileDirs($: EngineInterface): Promise<Record<BridgeAccount, string>> {
-  const h = await home($)
-  const here = (await $.env.get('CLAUDE_CONFIG_DIR')) || `${h}/.claude`
-  const option = String(settings.other_config_dir || '').replace(/^~(?=\/)/, h)
-  const other = option || (here === `${h}/.claude` ? `${h}/.claude-personal` : `${h}/.claude`)
-  return { here, other }
-}
-
-// The default profile keeps its sign-in in ~/.claude.json; any other in <dir>/.claude.json.
-async function readProfile($: EngineInterface, dir: string): Promise<BridgeProfile> {
-  const h = await home($)
-  const file = dir === `${h}/.claude` ? `${h}/.claude.json` : `${dir}/.claude.json`
-  try {
-    const oauth = JSON.parse(String(await $.fs.read(file)))?.oauthAccount
-    if (!oauth?.emailAddress) return { dir, isLoggedIn: false }
-    const plan = oauth.organizationType ? String(oauth.organizationType).replace(/^claude_/, '').replace(/_/g, ' ') : undefined
-    return { dir, isLoggedIn: true, email: oauth.emailAddress, plan }
-  } catch {
-    return { dir, isLoggedIn: false }
-  }
 }
 
 type Conn = { base: string; token: string }
@@ -86,14 +54,10 @@ async function api($: EngineInterface, c: Conn, path: string) {
 
 async function refresh($: EngineInterface, query?: string) {
   const q = query ?? (await read($, view)).query
-  const dirs = await profileDirs($)
-  const [here, other] = await Promise.all(ACCOUNTS.map(a => readProfile($, dirs[a])))
-  const profiles = { here, other }
   const c = connection()
   if (!c) {
     await update($, view, (v): BridgeView => ({
       ...v,
-      profiles,
       server: 'not-set-up',
       error: 'Set the handoff server URL and account token in the plugin settings.',
       query: q,
@@ -105,7 +69,6 @@ async function refresh($: EngineInterface, query?: string) {
     const [who, { items }] = await Promise.all([api($, c, '/api/whoami'), api($, c, path)])
     await update($, view, (v): BridgeView => ({
       ...v,
-      profiles,
       server: 'ok',
       error: undefined,
       space: who.space,
@@ -115,49 +78,11 @@ async function refresh($: EngineInterface, query?: string) {
   } catch (err) {
     await update($, view, (v): BridgeView => ({
       ...v,
-      profiles,
       server: 'down',
       error: `Handoff server not reachable at ${c.base} (${(err as Error).message}).`,
       query: q,
     }))
   }
-}
-
-// Where the claude command lives; the desktop app's PATH may not include it.
-async function claudeBinary($: EngineInterface): Promise<string> {
-  const h = await home($)
-  for (const p of ['/opt/homebrew/bin/claude', '/usr/local/bin/claude', `${h}/.local/bin/claude`, `${h}/.claude/local/claude`]) {
-    if (await $.fs.exists(p)) return p
-  }
-  return 'claude'
-}
-
-// Runs `claude auth login` for the other profile; the browser opens for the sign-in.
-async function logIn($: EngineInterface) {
-  const { other } = await profileDirs($)
-  const h = await home($)
-  const bin = await claudeBinary($)
-  const argv =
-    other === `${h}/.claude`
-      ? ['/usr/bin/env', '-u', 'CLAUDE_CONFIG_DIR', bin, 'auth', 'login']
-      : ['/usr/bin/env', `CLAUDE_CONFIG_DIR=${other}`, bin, 'auth', 'login']
-  const manual = `Run CLAUDE_CONFIG_DIR=${other} claude in a terminal and type /login.`
-  await update($, view, (v): BridgeView => ({ ...v, login: { state: 'running', message: 'Opening the browser to sign in…' } }))
-  try {
-    const run = $.process.spawn({ argv })
-    for await (const { text } of run) {
-      const url = text.match(/https:\/\/\S+/)?.[0]
-      if (url) await update($, view, (v): BridgeView => ({ ...v, login: { ...v.login!, url } }))
-    }
-    const { code } = await run.result
-    await update($, view, (v): BridgeView => ({
-      ...v,
-      login: code === 0 ? { state: 'done', message: 'Other account signed in.' } : { state: 'failed', message: `Sign-in did not finish. ${manual}` },
-    }))
-  } catch {
-    await update($, view, (v): BridgeView => ({ ...v, login: { state: 'failed', message: `Could not start sign-in here. ${manual}` } }))
-  }
-  await refresh($)
 }
 
 export const register: Register = (on, options) => {
@@ -223,35 +148,7 @@ export const register: Register = (on, options) => {
         )}
         {v.error && <Text color="error">{v.error}</Text>}
 
-        <Section title="Accounts">
-          {ACCOUNTS.map(a => {
-            const p = v.profiles[a]
-            return (
-              <Box key={`acct-${a}`} flexDirection="column">
-                <Text>
-                  <Text color={p.isLoggedIn ? 'success' : 'warning'}>{p.isLoggedIn ? '●' : '○'} </Text>
-                  <Text bold>{LABEL[a]}</Text>
-                </Text>
-                <Text dimColor wrap="truncate-end">
-                  {p.isLoggedIn ? [p.email, p.plan].filter(Boolean).join(' · ') : 'Not signed in'}
-                </Text>
-                {a === 'other' && !p.isLoggedIn && (
-                  <Button key="login-other" variant="primary" onPress={() => void logIn($)}>
-                    {v.login?.state === 'running' ? 'Signing in…' : 'Log in to the other account'}
-                  </Button>
-                )}
-              </Box>
-            )
-          })}
-          {v.login && (
-            <Text key="login-msg" color={v.login.state === 'failed' ? 'error' : undefined} dimColor={v.login.state !== 'failed'}>
-              {v.login.message}
-              {v.login.url && v.login.state === 'running' ? ` If no browser opened: ${v.login.url}` : ''}
-            </Text>
-          )}
-        </Section>
-
-        <Section title="Latest handoff" aside={latest ? ago(latest.at) : undefined}>
+        <Section title="Latest handoff" aside={latest ? `${latest.space === v.space ? 'This account' : 'Other account'} · ${ago(latest.at)}` : undefined}>
           {latest ? (
             <Box flexDirection="column">
               <Text bold>{latest.title}</Text>

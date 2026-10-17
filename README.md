@@ -18,7 +18,7 @@ By Omer Bin Saleem. MIT licensed.
 
 **One project, two contexts.** A side project you sometimes discuss at work, or a tool you prototype at home and use at the office. Both accounts read the same handoffs, so neither starts from zero.
 
-**Know where you are.** The panel shows which account this session uses and whether the other one is signed in, with a **Log in** button when it is not.
+**See every handoff in one list.** The panel shows the latest handoff with the account it came from, and every earlier one below it.
 
 ## What TwinBridge does and does not do
 
@@ -32,11 +32,22 @@ By Omer Bin Saleem. MIT licensed.
 
 | Part | What it does | Where data goes |
 |---|---|---|
-| MCP server `twinbridge` (`.mcp.json`) | Four tools: `save_handoff`, `get_handoff`, `list_handoffs`, `search_handoffs` | Your handoff server, at `<connector_url>/mcp/<account_token>/handoffs` |
-| `/bridge` panel (`hooks/register.tsx`) | Reads the latest handoffs and runs your searches | Your handoff server, with your account token, at `/api/whoami` and `/api/history?only=handoffs` |
-| `/bridge` panel, Accounts | Reads the email and plan that each Claude Code profile's `.claude.json` records, to show who is signed in | Nowhere: shown in the panel only |
-| `/bridge` panel, Log in | Runs `claude auth login` for your other profile, which opens Claude's own sign-in in your browser | Claude's sign-in page |
+| MCP server `twinbridge` (`.mcp.json`) | Four tools: `save_handoff`, `get_handoff`, `list_handoffs`, `search_handoffs` | Only your handoff server: `<connector_url>/mcp/<account_token>/handoffs` |
+| `/bridge` panel (`hooks/register.tsx`) | Shows the latest handoffs and runs your searches | Only your handoff server, with your account token: `GET <connector_url>/api/whoami` and `GET <connector_url>/api/history?only=handoffs` (plus `&q=<your search>`) |
 | Skill `twinbridge` | Tells Claude when to save and load handoffs and what to put in them | Nothing |
+
+**Hosts it contacts.** Only the handoff server URL you enter in the plugin's settings. There is no other network access: no analytics, no telemetry, no update checks.
+
+**Programs it runs.** None. The panel starts no processes and reads no files on your computer.
+
+**Prompts it submits.** The panel has two buttons that type a fixed prompt into the conversation for you, and nothing from the conversation is added to them:
+
+- **Continue here**: "Continue my latest TwinBridge handoff: load it with twinbridge get_handoff, then carry on with its next steps."
+- **Save handoff**: "Save a TwinBridge handoff now with twinbridge save_handoff: what was asked, what is done, key decisions, and concrete next steps, written for someone with no access to this chat."
+
+The **Save handoff** prompt asks Claude to call `save_handoff`, which sends the handoff Claude writes to your server. That is the only way conversation content leaves the conversation, and only when you press it or ask for a handoff.
+
+**Events it hooks.** `session.start` registers the `/bridge` command. `command.run` for `/bridge` opens the panel. `ui.render` draws the panel. None of them see or change your prompts, Claude's replies or tool calls.
 
 There are no hooks on prompts, replies or tool calls. See [PRIVACY.md](PRIVACY.md) for the full privacy policy.
 
@@ -44,23 +55,7 @@ There are no hooks on prompts, replies or tool calls. See [PRIVACY.md](PRIVACY.m
 
 ### 1. Run a handoff server
 
-TwinBridge works with the open source ClaudeTwin connector, a small server you host yourself:
-
-```bash
-git clone https://github.com/deadlydiamond/claudetwin
-cd claudetwin/connector
-npm install
-cp .env.example .env
-node --env-file=.env src/server.js
-```
-
-Fill both tokens in `.env` first. Generate each one with:
-
-```bash
-node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
-```
-
-For a URL both accounts can reach, deploy `connector/Dockerfile` (for example on Render, Railway or Fly.io) with a persistent volume on `/data` and both tokens set as environment variables. Use HTTPS.
+TwinBridge works with the open source ClaudeTwin connector, a small Node.js server you host yourself. Its setup steps are in the [ClaudeTwin README](https://github.com/deadlydiamond/claudetwin#install): create two random tokens (one per account), then run it on your own machine or deploy its Dockerfile to a host you control, with HTTPS and a persistent volume for its data.
 
 ### 2. Install the plugin in each account
 
@@ -74,7 +69,6 @@ Set these options:
 
 - **Handoff server URL**: for example `https://handoffs.example.com`, with no trailing slash
 - **Account token**: the work token in your work account, the personal token in your personal one
-- **Other account's Claude Code folder** (optional): the config folder of your other Claude Code profile, used only for the Accounts section
 
 ### 3. Use it
 
