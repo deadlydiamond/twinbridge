@@ -28,13 +28,8 @@
       "sensitive": true,
       "type": "string",
       "title": "Account token"
-    },
-    "other_config_dir": {
-      "type": "string",
-      "title": "Other account's Claude Code folder (optional)",
-      "description": "The config folder of your other Claude Code profile, shown in the panel's Accounts section. Empty: ~/.claude-personal when this profile is ~/.claude, else ~/.claude",
-      "default": ""
     }
   },
-  "types": "./types/index.d.ts"
+  "types": "./types/index.d.ts",
+  "privacyPolicyUrl": "https://github.com/deadlydiamond/twinbridge/blob/main/PRIVACY.md"
 }

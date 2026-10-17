@@ -17,11 +17,9 @@ You do. TwinBridge sends data only to the handoff server whose URL you enter in 
 
 TwinBridge does not read or send your chat history, Claude's memory, conversation summaries or session transcripts. It does not log your prompts or Claude's replies. A handoff is saved only when you ask for one, or when you agree after Claude asks.
 
-## Data that stays on your computer
+## Data on your computer
 
-The `/bridge` panel reads the email address and plan recorded in each Claude Code profile's `.claude.json` file, to show which accounts are signed in. This is shown in the panel only and is never sent anywhere.
-
-Your account token is stored in Claude's plugin settings as a sensitive value. It is sent only to your own server, to identify which account a handoff belongs to.
+The plugin reads no files on your computer and starts no programs. Your account token is stored in Claude's plugin settings as a sensitive value. It is sent only to your own server, to identify which account a handoff belongs to.
 
 ## How long data is kept
 
