@@ -1,0 +1,16 @@
+{
+  "name": "twinbridge",
+  "owner": { "name": "Omer Bin Saleem", "url": "https://github.com/deadlydiamond" },
+  "metadata": { "description": "TwinBridge by Omer Bin Saleem: continue work across your two Claude accounts.", "version": "1.0.0" },
+  "plugins": [
+    {
+      "name": "twinbridge",
+      "source": "./",
+      "description": "Save a handoff in one Claude account and continue in the other, from a server you run yourself.",
+      "version": "1.0.0",
+      "author": { "name": "Omer Bin Saleem", "url": "https://github.com/deadlydiamond" },
+      "license": "MIT",
+      "category": "productivity"
+    }
+  ]
+}
