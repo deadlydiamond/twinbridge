@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "twinbridge": {
+      "type": "http",
+      "url": "${user_config.connector_url}/mcp/${user_config.account_token}/handoffs"
+    }
+  }
+}

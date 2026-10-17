@@ -1,0 +1,4 @@
+{
+  "description": "TwinBridge: the /bridge panel. No command hooks; nothing runs on prompts or replies.",
+  "modules": ["./register.tsx"]
+}

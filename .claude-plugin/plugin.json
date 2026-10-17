@@ -1,0 +1,40 @@
+{
+  "name": "twinbridge",
+  "displayName": "TwinBridge",
+  "version": "1.0.0",
+  "description": "Continue work across your two Claude accounts. Save a handoff in one, pick it up in the other, from a server you run yourself.",
+  "author": {
+    "name": "Omer Bin Saleem",
+    "url": "https://github.com/deadlydiamond"
+  },
+  "homepage": "https://github.com/deadlydiamond/twinbridge",
+  "repository": "https://github.com/deadlydiamond/twinbridge",
+  "license": "MIT",
+  "keywords": [
+    "handoff",
+    "multi-account",
+    "context",
+    "continuity",
+    "self-hosted"
+  ],
+  "userConfig": {
+    "connector_url": {
+      "description": "Your handoff server's base URL, e.g. https://handoffs.example.com (no trailing slash)",
+      "type": "string",
+      "title": "Handoff server URL"
+    },
+    "account_token": {
+      "description": "This account's token from your handoff server",
+      "sensitive": true,
+      "type": "string",
+      "title": "Account token"
+    },
+    "other_config_dir": {
+      "type": "string",
+      "title": "Other account's Claude Code folder (optional)",
+      "description": "The config folder of your other Claude Code profile, shown in the panel's Accounts section. Empty: ~/.claude-personal when this profile is ~/.claude, else ~/.claude",
+      "default": ""
+    }
+  },
+  "types": "./types/index.d.ts"
+}
