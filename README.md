@@ -4,6 +4,8 @@
 
 **Continue work across your two Claude accounts. Handoffs from a server you run yourself.**
 
+TwinBridge is the Claude plugin directory edition of [ClaudeTwin](https://github.com/deadlydiamond/claudetwin): the same connector, handoffs only, nothing logged unless you ask. If you install plugins from GitHub, use ClaudeTwin itself.
+
 TwinBridge is a Claude plugin. In one account you ask Claude to save a handoff (what was asked, what is done, the decisions, the next steps). In your other account you open `/bridge` and press **Continue here**, and Claude starts from the same point.
 
 **Who it is for:** people with two Claude accounts, usually one for work and one of their own, who move the same task between them.
